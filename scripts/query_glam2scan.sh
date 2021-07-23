@@ -1,22 +1,19 @@
 #! /bin/bash
 
+#filepaths
 export motif_model=/home/troyalty/Documents/projects/luxbox_motif/data/meme_suite/glam2/motif_model/glam2.txt
 export tmp_dir=/home/troyalty/Documents/projects/luxbox_motif/data/meme_suite/glam2/motif_model/tmp_dir/
-#export n=100
-
 genome_dir=/home/troyalty/Documents/projects/luxbox_motif/data/tara_MAGs/
-#random_sequences=/home/troyalty/Documents/projects/luxbox_motif/data/meme_suite/glam2/motif_model/tara/tmp_dir/random_sequences.fasta
-#random_scores=/home/troyalty/Documents/projects/luxbox_motif/data/meme_suite/glam2/motif_model/tara/tmp_dir/random_scores.tsv
 cutoff_score=/home/troyalty/Documents/projects/luxbox_motif/data/meme_suite/glam2/motif_model/query_scores.tsv
 
-#echo -e sequence'\t'start'\t'sequence'\t'stop'\t'strand'\t'bitscore'\t'signifiance_cutoff'\t'genome >$query_score
+#initialize output file with headers
 echo -e bitscore'\t'genome'\t'gc_content'\t'genome_size'\t'replicate > $cutoff_score
+
+#create temporary directory glam2scan outputs
 rm -fr $tmp_dir 2>/dev/null
 mkdir $tmp_dir
 
-
-
-
+#function parallelizing glam2scan on genome
 function parallel_query_glam2scan {
 	file=$1
 	tmp=.tmp #2 line orginal sequences
@@ -25,7 +22,7 @@ function parallel_query_glam2scan {
 	>$tmp_file
 	seq_len=$(bioawk -c fastx 'BEGIN {seqlen=0}{seqlen+=length($seq)}END{print seqlen}' $file)
 	gc=$(perl -lane 'unless (/^>/) { $l += length(); $gc++ while /[GC]/ig } END { print $gc/$l}' $file)
-	for i in {1..1000}; do
+	for i in {1..1000}; do #number of randomized genomes
 		glam2scan -2 -t -n 1 n $motif_model <(fasta-shuffle-letters -copies 1 $file) |\
 		sed '1,6d;8d' |\
 		sed 's/\s\{1,\}/\t/g' |\
@@ -39,6 +36,5 @@ function parallel_query_glam2scan {
 }
 
 export -f parallel_query_glam2scan
-
 
 parallel -j 30 --eta "parallel_query_glam2scan {}" ::: $genome_dir/* >> $cutoff_score
